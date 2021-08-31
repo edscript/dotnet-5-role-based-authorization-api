@@ -1,13 +1,14 @@
-using BCryptNet = BCrypt.Net.BCrypt;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using WebApi.Authorization;
 using WebApi.Entities;
 using WebApi.Helpers;
 using WebApi.Services;
-using System.Text.Json.Serialization;
+using BCryptNet = BCrypt.Net.BCrypt;
 
 namespace WebApi
 {
@@ -31,6 +32,9 @@ namespace WebApi
                 x.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
 
+
+            // Added auto mapper dependency
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // configure strongly typed settings object
             services.Configure<AppSettings>(Configuration.GetSection("AppSettings"));
 
@@ -65,9 +69,9 @@ namespace WebApi
         {
             // add hardcoded test users to db on startup
             var testUsers = new List<User>
-            { 
+            {
                 new User { Id = 1, FirstName = "Admin", LastName = "User", Username = "admin", PasswordHash = BCryptNet.HashPassword("admin"), Role = Role.Admin },
-                new User { Id = 2, FirstName = "Normal", LastName = "User", Username = "user", PasswordHash = BCryptNet.HashPassword("user"), Role = Role.User } 
+                new User { Id = 2, FirstName = "Normal", LastName = "User", Username = "user", PasswordHash = BCryptNet.HashPassword("user"), Role = Role.User }
             };
             context.Users.AddRange(testUsers);
             context.SaveChanges();
