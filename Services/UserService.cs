@@ -6,6 +6,7 @@ using WebApi.Authorization;
 using WebApi.Entities;
 using WebApi.Helpers;
 using WebApi.Models.Users;
+using AutoMapper;
 
 namespace WebApi.Services
 {
@@ -14,6 +15,9 @@ namespace WebApi.Services
         AuthenticateResponse Authenticate(AuthenticateRequest model);
         IEnumerable<User> GetAll();
         User GetById(int id);
+        void Register(RegisterRequest model);
+        void Update(int id, UpdateRequest model);
+        void Delete(int id);
     }
 
     public class UserService : IUserService
@@ -21,15 +25,19 @@ namespace WebApi.Services
         private DataContext _context;
         private IJwtUtils _jwtUtils;
         private readonly AppSettings _appSettings;
+        private readonly IMapper _mapper;
 
         public UserService(
             DataContext context,
             IJwtUtils jwtUtils,
-            IOptions<AppSettings> appSettings)
+            IOptions<AppSettings> appSettings,
+            IMapper mapper
+            )
         {
             _context = context;
             _jwtUtils = jwtUtils;
             _appSettings = appSettings.Value;
+            _mapper = mapper;
         }
 
 
@@ -52,11 +60,63 @@ namespace WebApi.Services
             return _context.Users;
         }
 
-        public User GetById(int id) 
+        public User GetById(int id)
         {
             var user = _context.Users.Find(id);
             if (user == null) throw new KeyNotFoundException("User not found");
             return user;
         }
+
+        public void Register(RegisterRequest model)
+        {
+            // Validate
+            if (_context.Users.Any(x => x.Username == model.Username))
+                throw new AppException("Username '" + model.Username + "' is already taken");
+
+            // Map model to new user object
+            var user = _mapper.Map<User>(model);
+
+            // Hash password
+            user.PasswordHash = BCryptNet.HashPassword(model.Password);
+
+            // Save user
+            _context.Users.Add(user);
+            _context.SaveChanges();
+        }
+
+        public void Update(int id, UpdateRequest model)
+        {
+            var user = _getUser(id);
+
+            // Validate
+            if (model.Username != user.Username && _context.Users.Any(x => x.Username == model.Username))
+                throw new AppException("Username '" + model.Username + "' is already taken");
+
+            // Hash password if was entered
+            if (!string.IsNullOrEmpty(model.Password))
+                user.PasswordHash = BCryptNet.HashPassword(model.Password);
+
+            // Copy model to user and save
+            _mapper.Map(model, user);
+            _context.Users.Update(user);
+            _context.SaveChanges();
+        }
+
+        public void Delete(int id)
+        {
+            var user = _getUser(id);
+
+            _context.Users.Remove(user);
+            _context.SaveChanges();
+        }
+
+        #region Private methods
+        private User _getUser(int id)
+        {
+            var user = _context.Users.Find(id);
+            if (user == null) throw new KeyNotFoundException("User not found");
+            return user;
+        }
+        #endregion
     }
 }

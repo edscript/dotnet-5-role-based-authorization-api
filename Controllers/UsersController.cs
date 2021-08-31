@@ -27,11 +27,41 @@ namespace WebApi.Controllers
         }
 
         [Authorize(Role.Admin)]
+        [HttpPost("[action]")]
+        public IActionResult Register(RegisterRequest model)
+        {
+            _userService.Register(model);
+            return Ok(new { message = "Registration successful" });
+        }
+
+        [Authorize(Role.Admin)]
+        [HttpPut("{id:int}")]
+        public IActionResult Update(int id, UpdateRequest model)
+        {
+            _userService.Update(id, model);
+            return Ok(new { message = "User updated successfully" });
+        }
+
+        [Authorize(Role.Admin)]
         [HttpGet]
         public IActionResult GetAll()
         {
             var users = _userService.GetAll();
             return Ok(users);
+        }
+
+        [Authorize(Role.Admin)]
+        [HttpDelete("{id:int}")]
+        public IActionResult Delete(int id)
+        {
+            var currentUser = (User)HttpContext.Items["User"];
+            if (id == currentUser.Id)
+            {
+                return Unauthorized(new { message = "You can't delete your own user" });
+            }
+
+            _userService.Delete(id);
+            return Ok(new { message = $"User with ID:{id} deleted" });
         }
 
         [HttpGet("{id:int}")]
@@ -40,9 +70,11 @@ namespace WebApi.Controllers
             // only admins can access other user records
             var currentUser = (User)HttpContext.Items["User"];
             if (id != currentUser.Id && currentUser.Role != Role.Admin)
+            {
                 return Unauthorized(new { message = "Unauthorized" });
+            }
 
-            var user =  _userService.GetById(id);
+            var user = _userService.GetById(id);
             return Ok(user);
         }
     }
