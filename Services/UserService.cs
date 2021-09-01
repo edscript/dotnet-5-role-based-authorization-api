@@ -7,6 +7,7 @@ using WebApi.Entities;
 using WebApi.Helpers;
 using WebApi.Models.Users;
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 
 namespace WebApi.Services
 {
@@ -24,19 +25,16 @@ namespace WebApi.Services
     {
         private DataContext _context;
         private IJwtUtils _jwtUtils;
-        private readonly AppSettings _appSettings;
         private readonly IMapper _mapper;
 
         public UserService(
             DataContext context,
             IJwtUtils jwtUtils,
-            IOptions<AppSettings> appSettings,
             IMapper mapper
             )
         {
             _context = context;
             _jwtUtils = jwtUtils;
-            _appSettings = appSettings.Value;
             _mapper = mapper;
         }
 
@@ -47,7 +45,9 @@ namespace WebApi.Services
 
             // validate
             if (user == null || !BCryptNet.Verify(model.Password, user.PasswordHash))
-                throw new AppException("Username or password is incorrect");
+            {
+                throw new AppException("Username or password is incorrect", model);
+            }
 
             // authentication successful so generate jwt token
             var jwtToken = _jwtUtils.GenerateJwtToken(user);
@@ -63,7 +63,11 @@ namespace WebApi.Services
         public User GetById(int id)
         {
             var user = _context.Users.Find(id);
-            if (user == null) throw new KeyNotFoundException("User not found");
+            if (user == null)
+            {
+                throw new KeyNotFoundException("User not found");
+            }
+
             return user;
         }
 
@@ -71,7 +75,9 @@ namespace WebApi.Services
         {
             // Validate
             if (_context.Users.Any(x => x.Username == model.Username))
+            {
                 throw new AppException("Username '" + model.Username + "' is already taken");
+            }
 
             // Map model to new user object
             var user = _mapper.Map<User>(model);
@@ -90,11 +96,15 @@ namespace WebApi.Services
 
             // Validate
             if (model.Username != user.Username && _context.Users.Any(x => x.Username == model.Username))
+            {
                 throw new AppException("Username '" + model.Username + "' is already taken");
+            }
 
             // Hash password if was entered
             if (!string.IsNullOrEmpty(model.Password))
+            {
                 user.PasswordHash = BCryptNet.HashPassword(model.Password);
+            }
 
             // Copy model to user and save
             _mapper.Map(model, user);

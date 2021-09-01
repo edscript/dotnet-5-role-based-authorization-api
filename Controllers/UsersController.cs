@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using WebApi.Authorization;
 using WebApi.Entities;
 using WebApi.Models.Users;
@@ -11,17 +12,21 @@ namespace WebApi.Controllers
     [Route("[controller]")]
     public class UsersController : ControllerBase
     {
-        private IUserService _userService;
+        private readonly IUserService _userService;
+        private readonly ILogger _logger;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, ILogger<UsersController> logger)
         {
             _userService = userService;
+            _logger = logger;
         }
 
         [AllowAnonymous]
         [HttpPost("[action]")]
         public IActionResult Authenticate(AuthenticateRequest model)
         {
+            _logger.LogInformation("Authenticating User: {username}", model.Username);
+
             var response = _userService.Authenticate(model);
             return Ok(response);
         }
@@ -30,7 +35,9 @@ namespace WebApi.Controllers
         [HttpPost("[action]")]
         public IActionResult Register(RegisterRequest model)
         {
+            _logger.LogInformation("Registering a user: {username}", model.Username);
             _userService.Register(model);
+
             return Ok(new { message = "Registration successful" });
         }
 
@@ -38,7 +45,9 @@ namespace WebApi.Controllers
         [HttpPut("{id:int}")]
         public IActionResult Update(int id, UpdateRequest model)
         {
+            _logger.LogInformation("Updating a user: {username}", model.Username);
             _userService.Update(id, model);
+
             return Ok(new { message = "User updated successfully" });
         }
 
@@ -46,7 +55,9 @@ namespace WebApi.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
+            _logger.LogInformation("Getting all users");
             var users = _userService.GetAll();
+
             return Ok(users);
         }
 
@@ -54,6 +65,8 @@ namespace WebApi.Controllers
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
+            _logger.LogInformation("Delete a user with ID: {id}", id);
+
             var currentUser = (User)HttpContext.Items["User"];
             if (id == currentUser.Id)
             {
@@ -67,6 +80,8 @@ namespace WebApi.Controllers
         [HttpGet("{id:int}")]
         public IActionResult GetById(int id)
         {
+            _logger.LogInformation("Getting user with ID: {id}", id);
+
             // only admins can access other user records
             var currentUser = (User)HttpContext.Items["User"];
             if (id != currentUser.Id && currentUser.Role != Role.Admin)
