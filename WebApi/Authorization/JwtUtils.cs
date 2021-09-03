@@ -5,7 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using WebApi.Entities;
+using WebApi.Domain.Entities;
 using WebApi.Helpers;
 
 namespace WebApi.Authorization

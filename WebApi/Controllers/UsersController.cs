@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using WebApi.Authorization;
-using WebApi.Entities;
+using WebApi.Domain.Entities;
 using WebApi.Models.Users;
 using WebApi.Services;
 
@@ -26,8 +26,8 @@ namespace WebApi.Controllers
         public IActionResult Authenticate(AuthenticateRequest model)
         {
             _logger.LogInformation("Authenticating User: {username}", model.Username);
-
             var response = _userService.Authenticate(model);
+
             return Ok(response);
         }
 
@@ -66,7 +66,7 @@ namespace WebApi.Controllers
         public IActionResult Delete(int id)
         {
             _logger.LogInformation("Delete a user with ID: {id}", id);
-
+            
             var currentUser = (User)HttpContext.Items["User"];
             if (id == currentUser.Id)
             {
@@ -74,6 +74,7 @@ namespace WebApi.Controllers
             }
 
             _userService.Delete(id);
+
             return Ok(new { message = $"User with ID:{id} deleted" });
         }
 

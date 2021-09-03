@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Options;
 using WebApi.Authorization;
-using WebApi.Entities;
+using WebApi.Domain.Entities;
 using WebApi.Helpers;
 using WebApi.Models.Users;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using WebApi.Domain.Interfaces;
 
 namespace WebApi.Services
 {
@@ -23,25 +24,25 @@ namespace WebApi.Services
 
     public class UserService : IUserService
     {
-        private DataContext _context;
-        private IJwtUtils _jwtUtils;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IJwtUtils _jwtUtils;
         private readonly IMapper _mapper;
 
         public UserService(
-            DataContext context,
             IJwtUtils jwtUtils,
-            IMapper mapper
+            IMapper mapper,
+            IUnitOfWork unitOfWork
             )
         {
-            _context = context;
             _jwtUtils = jwtUtils;
             _mapper = mapper;
+            _unitOfWork = unitOfWork;
         }
 
 
         public AuthenticateResponse Authenticate(AuthenticateRequest model)
         {
-            var user = _context.Users.SingleOrDefault(x => x.Username == model.Username);
+            var user = _unitOfWork.Users.GetByUsername(model.Username);
 
             // validate
             if (user == null || !BCryptNet.Verify(model.Password, user.PasswordHash))
@@ -57,12 +58,12 @@ namespace WebApi.Services
 
         public IEnumerable<User> GetAll()
         {
-            return _context.Users;
+            return _unitOfWork.Users.GetAll();
         }
 
         public User GetById(int id)
         {
-            var user = _context.Users.Find(id);
+            var user = _unitOfWork.Users.GetById(id);
             if (user == null)
             {
                 throw new KeyNotFoundException("User not found");
@@ -74,7 +75,7 @@ namespace WebApi.Services
         public void Register(RegisterRequest model)
         {
             // Validate
-            if (_context.Users.Any(x => x.Username == model.Username))
+            if (_unitOfWork.Users.IsUsernameAlreadyRegistered(model.Username))
             {
                 throw new AppException("Username '" + model.Username + "' is already taken");
             }
@@ -86,8 +87,8 @@ namespace WebApi.Services
             user.PasswordHash = BCryptNet.HashPassword(model.Password);
 
             // Save user
-            _context.Users.Add(user);
-            _context.SaveChanges();
+            _unitOfWork.Users.Add(user);
+            _unitOfWork.Complete();
         }
 
         public void Update(int id, UpdateRequest model)
@@ -95,7 +96,7 @@ namespace WebApi.Services
             var user = _getUser(id);
 
             // Validate
-            if (model.Username != user.Username && _context.Users.Any(x => x.Username == model.Username))
+            if (model.Username != user.Username && _unitOfWork.Users.IsUsernameAlreadyRegistered(model.Username))
             {
                 throw new AppException("Username '" + model.Username + "' is already taken");
             }
@@ -108,23 +109,26 @@ namespace WebApi.Services
 
             // Copy model to user and save
             _mapper.Map(model, user);
-            _context.Users.Update(user);
-            _context.SaveChanges();
+            _unitOfWork.Complete();
         }
 
         public void Delete(int id)
         {
             var user = _getUser(id);
 
-            _context.Users.Remove(user);
-            _context.SaveChanges();
+            _unitOfWork.Users.Remove(user);
+            _unitOfWork.Complete();
         }
 
         #region Private methods
         private User _getUser(int id)
         {
-            var user = _context.Users.Find(id);
-            if (user == null) throw new KeyNotFoundException("User not found");
+            var user = _unitOfWork.Users.GetById(id);
+            if (user == null)
+            {
+                throw new KeyNotFoundException("User not found");
+            }
+
             return user;
         }
         #endregion

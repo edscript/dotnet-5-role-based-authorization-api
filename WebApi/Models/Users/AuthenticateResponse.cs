@@ -1,4 +1,4 @@
-using WebApi.Entities;
+using WebApi.Domain.Entities;
 
 namespace WebApi.Models.Users
 {
